@@ -80,7 +80,7 @@ def get_3d_box(center, dimensions, rotation):
 def find_carByICP(sourcePath, targetPath, carIDList):
     transformation_matrix = ICP.icp_registration(sourcePath.replace("json", "pcd"),
                                                  targetPath.replace("json", "pcd"))
-    unique_list = [-1,-1,-1,-1,-1]
+    unique_list = [-1 for i in range(0,len(carIDList))]
     distance_list = []
 
     jsonfile_source = read_json(sourcePath)
@@ -104,8 +104,9 @@ def find_carByICP(sourcePath, targetPath, carIDList):
         transformed_car = np.dot(transformation_matrix[:3, :3], source_car) + transformation_matrix[:3, 3]
 
         for obj in target_objects:
-            distance = get_distance(np.array(list(obj['box3d']['center'].values())), transformed_car)
-            distances.append(distance)
+            if obj["shapeType"] == "cube":
+                distance = get_distance(np.array(list(obj['box3d']['center'].values())), transformed_car)
+                distances.append(distance)
 
         distance_list.append(distances)
     # Find the minimum element and its index
@@ -140,12 +141,13 @@ def find_carByICP(sourcePath, targetPath, carIDList):
 
     for id in carIDList:
         for obj in target_objects:
-            if obj['objectId']==id:
-                center = obj["box3d"]["center"]
-                dimensions = obj["box3d"]["dimensions"]
-                rotation = obj["box3d"]["rotation"]
-                box_corners = get_3d_box(center, dimensions, rotation)
-                draw_bbox(box_corners, vis)
+            if obj["shapeType"]=="cube":
+                if obj['objectId']==id:
+                    center = obj["box3d"]["center"]
+                    dimensions = obj["box3d"]["dimensions"]
+                    rotation = obj["box3d"]["rotation"]
+                    box_corners = get_3d_box(center, dimensions, rotation)
+                    draw_bbox(box_corners, vis)
 
     vis.run()
 
@@ -155,20 +157,17 @@ def find_carByICP(sourcePath, targetPath, carIDList):
         json.dump(jsonfile_target, file, indent=2)
 
 
-# sourcePath = 'kitty_open3d/output/003/003/1688782472.389342.json'
-# targetPath = 'kitty_open3d/output/003/003/1688782472.890264.json'
+# sourcePath = 'pointcloud_open3d/output/003/003/1688782472.389342.json'
+# targetPath = 'pointcloud_open3d/output/003/003/1688782472.890264.json'
 
 def singleFrame(sourcePath, targetPath):
     # read previous frame
     jsonfile = read_json(sourcePath)
     objects = jsonfile["objects"]
+    IDlist=[]
     for obj in objects:
-        if obj["objectId"] == 5:
-            initial_car5 = obj['box3d']
-            center_5 = obj['box3d']['center']
-
-    # ICP registration
-    IDlist = [5, 8, 10, 11, 12]
+        if obj["shapeType"]=="cube":
+            IDlist.append(obj["objectId"])
     find_carByICP(sourcePath, targetPath, IDlist)
 
     # get HOG feature of previous frame
@@ -319,7 +318,7 @@ def singleFrame(sourcePath, targetPath):
 
 
 if __name__ == "__main__":
-    folder_path = "kitty_open3d/output/003"
+    folder_path = "kitty_open3d/output/scene_001/002"
     frame = 2
     for root, dirs, files in os.walk(folder_path):
         if files:
